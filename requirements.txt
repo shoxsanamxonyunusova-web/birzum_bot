@@ -1,5 +1,6 @@
 aiogram==3.15.0
 aiosqlite==0.20.0
-google-genai==0.1.1
-yt-dlp==2024.12.23
+google-genai
+yt-dlp
 python-dotenv==1.0.1
+
