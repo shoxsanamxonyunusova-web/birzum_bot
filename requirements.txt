@@ -3,4 +3,6 @@ aiosqlite==0.20.0
 google-genai
 yt-dlp
 python-dotenv==1.0.1
+aiohttp
+
 
