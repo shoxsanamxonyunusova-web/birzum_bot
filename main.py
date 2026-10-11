@@ -185,5 +185,50 @@ async def open_box_cb(callback: CallbackQuery):
 @dp.message(F.text.in_(["🏆 Reyting (/top)", "/top"]))
 async def top_cmd(message: Message):
     async with aiosqlite.connect(DB_NAME) as db:
-        async with db.execute("SELECT user_id, referral_count FROM user_rewards ORDER BY referral_count DESC LIMIT 10")
+        async with db.execute("SELECT user_id, referral_count FROM user_rewards ORDER BY referral_count DESC LIMIT 10") as cur:
+            rows = await cur.fetchall()
 
+    text = "🏆 <b>Eng Ko‘p Do‘st Taklif Qilganlar (TOP-10):</b>\n\n"
+    medals = ["🥇", "🥈", "🥉"]
+    for i, (uid, cnt) in enumerate(rows, 1):
+        m = medals[i-1] if i <= 3 else f"{i}."
+        text += f"{m} ID: <code>{uid}</code> — <b>{cnt} ta do‘st</b>\n"
+    await message.answer(text, parse_mode="HTML")
+
+@dp.message(F.text.in_(["⭐️ Telegram Premium & Gift", "/rewards"]))
+async def rewards_cmd(message: Message):
+    user_id = message.from_user.id
+    me = await bot.get_me()
+
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute("SELECT referral_count FROM user_rewards WHERE user_id = ?", (user_id,)) as cur:
+            row = await cur.fetchone()
+            count = row[0] if row else 0
+
+    target = 15 if count < 15 else (30 if count < 30 else 50)
+    bar = render_progress_bar(count, target)
+
+    kb = [[InlineKeyboardButton(text="📲 Do‘stlarga ulashish", url=f"https://t.me/share/url?url=https://t.me/{me.username}?start=ref_{user_id}&text=Zo'r+botni+sinab+ko'r!")]]
+    if count >= 50:
+        kb.append([InlineKeyboardButton(text="🌟 1 Oylik Premium talab qilish", callback_data="claim_PREMIUM")])
+    elif count >= 30:
+        kb.append([InlineKeyboardButton(text="⭐️ 50 ta Stars talab qilish", callback_data="claim_STARS")])
+    elif count >= 15:
+        kb.append([InlineKeyboardButton(text="🎁 Gift talab qilish", callback_data="claim_GIFT")])
+
+    await message.answer(
+        f"🏆 <b>Sovg‘alar Markazi</b>\n\nTaklif qilingan do‘stlar: <b>{count} ta</b>\nProgress: <code>{bar}</code>\n\n"
+        f"🔗 <b>Havolangiz:</b>\n<code>https://t.me/{me.username}?start=ref_{user_id}</code>",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=kb),
+        parse_mode="HTML"
+    )
+
+@dp.callback_query(F.data.startswith("claim_"))
+async def claim_cb(callback: CallbackQuery):
+    reward = callback.data.split("_")[1]
+    await callback.answer("So‘rovingiz adminga yuborildi!", show_alert=True)
+    await callback.message.edit_reply_markup(reply_markup=None)
+    await bot.send_message(
+        ADMIN_ID,
+        f"🚨 <b>Sovg‘a Talabi!</b>\nFoydalanuvchi:
+ 
